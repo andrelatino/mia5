@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcos AI Assistant</title>
+    <link rel="stylesheet" type="text/css" href="./styles.css">
+</head>
+<body>
+    <div id="grid">
+        <div id="item1">
+            <div id="container"></div>
+            <div id="buttons">
+                <button id="startButton"><img src="./mic-on.svg" width="100" height="100"></button>
+                <button id="stopButton"><img src="./mic-off.svg" width="100" height="100"></button>
+                <button id="openModal"><img src="./settings.svg" width="100" height="100"></button>
+            </div>
+            
+            <audio id="speechAudio" controls autoplay style="display:none;"></audio>
+        </div>
+        <div id="item2">
+            <p id="result"></p>
+            <div id="conversaciones"></div>
+        </div>
+    </div>   
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="settings-section">
+                <h3>Anthropic API Key</h3>
+                <input type="text" id="textInput" placeholder="ANTHROPIC API KEY">
+                <button id="sendButton">SAVE API KEY</button>
+            </div>
+            <div class="settings-section">
+                <h3>Voice Selection</h3>
+                <select id="voiceSelect">
+                    <option value="">Select a Voice</option>
+                </select>
+                <button id="saveVoiceButton">SAVE VOICE</button>
+            </div>
+            <div class="settings-section">
+                <h3>Voice Pitch</h3>
+                <input type="range" id="pitchSlider" min="0.5" max="2" step="0.1" value="1.0">
+                <span id="pitchValue">1.0</span>
+                <button id="savePitchButton">SAVE PITCH</button>
+            </div>
+            <div class="settings-section">
+                <h3>Voice Rate</h3>
+                <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1.0">
+                <span id="rateValue">1.0</span>
+                <button id="saveRateButton">SAVE RATE</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="https://amanpriyanshu.github.io/API-LLM-Hub/unified-llm-api.js"></script>
+    <script type="module" src="./audimotion.js"></script>
+    <script type="module" src="./speak.js"></script>
+    <script type="module" src="./askMia.js"></script>
+    <script type="module" src="./api.js"></script>
+    <script type="module">
+        import { 
+            saveVoiceToLocalStorage, 
+            loadVoiceFromLocalStorage,
+            savePitchToLocalStorage,
+            saveRateToLocalStorage,
+            loadPitchFromLocalStorage,
+            loadRateFromLocalStorage
+        } from './speak.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const voiceSelect = document.getElementById('voiceSelect');
+            const saveVoiceButton = document.getElementById('saveVoiceButton');
+            
+            // Pitch slider setup
+            const pitchSlider = document.getElementById('pitchSlider');
+            const pitchValue = document.getElementById('pitchValue');
+            const savePitchButton = document.getElementById('savePitchButton');
+            
+            // Rate slider setup
+            const rateSlider = document.getElementById('rateSlider');
+            const rateValue = document.getElementById('rateValue');
+            const saveRateButton = document.getElementById('saveRateButton');
+
+            // Function to populate voices
+            function populateVoices() {
+                // Clear existing options
+                voiceSelect.innerHTML = '<option value="">Select a Voice</option>';
+
+                // Get voices from speech synthesis
+                const voices = window.speechSynthesis.getVoices();
+
+                // Group voices by language
+                const voicesByLanguage = {};
+                voices.forEach(voice => {
+                    if (!voicesByLanguage[voice.lang]) {
+                        voicesByLanguage[voice.lang] = [];
+                    }
+                    voicesByLanguage[voice.lang].push(voice);
+                });
+
+                // Create optgroups for each language
+                Object.keys(voicesByLanguage).sort().forEach(lang => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = lang;
+                    
+                    voicesByLanguage[lang].forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = voice.name;
+                        option.textContent = voice.name;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    voiceSelect.appendChild(optgroup);
+                });
+
+                // Set previously saved voice
+                const savedVoice = loadVoiceFromLocalStorage();
+                if (savedVoice) {
+                    voiceSelect.value = savedVoice;
+                }
+            }
+
+            // Pitch slider event listeners
+            pitchSlider.addEventListener('input', () => {
+                pitchValue.textContent = pitchSlider.value;
+            });
+
+            savePitchButton.addEventListener('click', () => {
+                const pitch = parseFloat(pitchSlider.value);
+                savePitchToLocalStorage(pitch);
+                alert('Pitch saved successfully!');
+            });
+
+            // Rate slider event listeners
+            rateSlider.addEventListener('input', () => {
+                rateValue.textContent = rateSlider.value;
+            });
+
+            saveRateButton.addEventListener('click', () => {
+                const rate = parseFloat(rateSlider.value);
+                saveRateToLocalStorage(rate);
+                alert('Rate saved successfully!');
+            });
+
+            // Load saved pitch and rate on startup
+            const savedPitch = loadPitchFromLocalStorage();
+            pitchSlider.value = savedPitch;
+            pitchValue.textContent = savedPitch;
+
+            const savedRate = loadRateFromLocalStorage();
+            rateSlider.value = savedRate;
+            rateValue.textContent = savedRate;
+
+            // Initial population of voices
+            populateVoices();
+
+            // Handle voice loading in different browsers
+            if ('onvoiceschanged' in window.speechSynthesis) {
+                window.speechSynthesis.onvoiceschanged = populateVoices;
+            }
+
+            // Retry voice population after a short delay
+            setTimeout(populateVoices, 500);
+            setTimeout(populateVoices, 1000);
+
+            // Save voice selection
+            saveVoiceButton.addEventListener('click', () => {
+                const selectedVoice = voiceSelect.value;
+                if (selectedVoice) {
+                    saveVoiceToLocalStorage(selectedVoice);
+                    alert('Voice saved successfully!');
+                } else {
+                    alert('Please select a voice');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
